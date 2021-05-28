@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     meier_set_names_stack = ['noise', 'wforms']
 
-    batch_size = args.batch_size
+    batch_size = int(args.batch_size)
 
     label = 2
     _id = 'meier_noise'
@@ -104,11 +104,11 @@ if __name__ == '__main__':
     Y = np.full(batch_size, label, dtype = int)
     Z = np.full(batch_size, _id, dtype = object)
 
-    start = args.start
+    start = int(args.start)
     end = meier_set.shape[1]
 
     if args.end:
-        end = args.end
+        end = int(args.end)
 
     print(f'Converting data from {start} to {end}..')
 
