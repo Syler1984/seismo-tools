@@ -1,6 +1,9 @@
 # Manuall written, project specific
 data/
 .idea
+*.pyc
+*.pyo
+__pycache__
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,windows
