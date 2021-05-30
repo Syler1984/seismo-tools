@@ -175,8 +175,12 @@ if __name__ == '__main__':
         batch_num += 1
 
     b = 0
-    print(f'Converting data from {start} to {end}')
+    import time
+    print(f'Converting data from {start} to {end} with {procs} processes:')
     for b in range(batch_num):
+
+        # Track batch process time
+        start_time = time.time()
 
         # Get current batch size
         c_batch_size = batch_size
@@ -195,8 +199,9 @@ if __name__ == '__main__':
 
         c_proc_batch_spans += [(c_start_pos, c_start_pos + c_proc_batch_size + c_batch_size % procs)]
 
-        print(f'Batch {b} out of {batch_num} '
-              f'(from {c_proc_batch_spans[0][0]} to {c_proc_batch_spans[-1][1]})..', end = '', flush = True)
+        print_message = f'Batch {b} out of {batch_num} ' \
+                        f'(from {c_proc_batch_spans[0][0]} to {c_proc_batch_spans[-1][1]})..' + ' ' * 40
+        print(f'{print_message[:70]}', end = '', flush = True)
 
         if procs == 1:
             process(meier_path, meier_set_names_stack,
@@ -223,4 +228,5 @@ if __name__ == '__main__':
             for i in range(procs):
                 processes[i].join()
 
-        print('\t\t..saved!')
+        time_span = time.time() - start_time
+        print(f'..saved! {time_span:.4f} seconds!')
