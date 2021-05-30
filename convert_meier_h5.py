@@ -132,8 +132,7 @@ if __name__ == '__main__':
     meier_path = args.meier_path
     save_path = args.save_path
 
-    meier_set_names_stack = ['X']
-    # meier_set_names_stack = ['noise', 'wforms']
+    meier_set_names_stack = ['noise', 'wforms']
 
     batch_size = int(args.batch_size)
 
