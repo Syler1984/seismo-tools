@@ -67,8 +67,19 @@ def convert_data(dataset, idx, lock):
     return X.reshape((1, *X.shape))
 
 
-def process(read_lock, write_lock, path, names_stack, span, save_path, label, id):
-
+def process(path, names_stack, span, save_path, label, id, read_lock = None, write_lock = None):
+    """
+    Represents single data conversion process
+    :param path: Path to original .h5 file
+    :param names_stack: Name stack to dataset within original .h5 file
+    :param span: (start_idx, end_id) tuple for current batch
+    :param save_path: Converted .h5 dataset path
+    :param label: Y dataset value
+    :param id: ID dataset value
+    :param read_lock: multiprocessing lock for original .h5 file
+    :param write_lock: multiprocessing lock for converted .h5 file
+    :return:
+    """
     batch_size = span[1] - span[0]
     X = np.zeros((batch_size, 400, 3))
     Y = np.full(batch_size, label, dtype = int)
@@ -188,8 +199,7 @@ if __name__ == '__main__':
               f'(from {c_proc_batch_spans[0][0]} to {c_proc_batch_spans[-1][1]})..', end = '', flush = True)
 
         if procs == 1:
-            process(None, None,
-                    meier_path, meier_set_names_stack,
+            process(meier_path, meier_set_names_stack,
                     c_proc_batch_spans[0],
                     save_path,
                     label, _id)
@@ -199,11 +209,11 @@ if __name__ == '__main__':
             write_lock = mp.Lock()
             processes = []
             for i in range(procs):
-                processes += [mp.Process(target = process, args = (read_lock, write_lock,
-                                                                   meier_path, meier_set_names_stack,
+                processes += [mp.Process(target = process, args = (meier_path, meier_set_names_stack,
                                                                    c_proc_batch_spans[i],
                                                                    save_path,
-                                                                   label, _id))]
+                                                                   label, _id,
+                                                                   read_lock, write_lock))]
 
             # Process batch
             for i in range(procs):
