@@ -193,10 +193,10 @@ if __name__ == '__main__':
         c_proc_batch_size = c_batch_size // procs
         c_start_pos = batch_start_pos
         for i in range(procs - 1):
-            c_proc_batch_spans += [(c_start_pos, c_start_pos + c_proc_batch_size)]
+            c_proc_batch_spans += [(start + c_start_pos, start + c_start_pos + c_proc_batch_size)]
             c_start_pos += c_proc_batch_size
 
-        c_proc_batch_spans += [(c_start_pos, c_start_pos + c_proc_batch_size + c_batch_size % procs)]
+        c_proc_batch_spans += [(start + c_start_pos, start + c_start_pos + c_proc_batch_size + c_batch_size % procs)]
 
         print_message = f'Batch {b} out of {batch_num} ' \
                         f'(from {c_proc_batch_spans[0][0]} to {c_proc_batch_spans[-1][1]})..' + ' ' * 40
