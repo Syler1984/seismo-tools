@@ -18,11 +18,14 @@ def convert_data(dataset, idx, lock):
         4. Local absolute max normalization.
     """
     # Get data
-    lock.acquire()
-    try:
+    if lock:
+        lock.acquire()
+        try:
+            data = dataset[:, idx, :]
+        finally:
+            lock.release()
+    else:
         data = dataset[:, idx, :]
-    finally:
-        lock.release()
 
     channels = [data[i, :] for i in range(data.shape[0])]
 
@@ -82,13 +85,18 @@ def process(read_lock, write_lock, path, names_stack, span, save_path, label, id
             X[b] = convert_data(meier_set, i, read_lock)
             b += 1
 
-        write_lock.acquire()
-        try:
+        if write_lock:
+            write_lock.acquire()
+            try:
+                write_batch(save_path, 'X', X)
+                write_batch(save_path, 'Y', Y)
+                write_batch(save_path, 'Z', Z, string = True)
+            finally:
+                write_lock.release()
+        else:
             write_batch(save_path, 'X', X)
             write_batch(save_path, 'Y', Y)
             write_batch(save_path, 'Z', Z, string = True)
-        finally:
-            write_lock.release()
 
 
 if __name__ == '__main__':
@@ -179,23 +187,30 @@ if __name__ == '__main__':
         print(f'Batch {b} out of {batch_num} '
               f'(from {c_proc_batch_spans[0][0]} to {c_proc_batch_spans[-1][1]})..', end = '', flush = True)
 
-        # Preparing sub-processes
-        read_lock = mp.Lock()
-        write_lock = mp.Lock()
-        processes = []
-        for i in range(procs):
-            processes += [mp.Process(target = process, args = (read_lock, write_lock,
-                                                               meier_path, meier_set_names_stack,
-                                                               c_proc_batch_spans[i],
-                                                               save_path,
-                                                               label, _id))]
+        if procs == 1:
+            process(None, None,
+                    meier_path, meier_set_names_stack,
+                    c_proc_batch_spans[0],
+                    save_path,
+                    label, _id)
+        else:
+            # Preparing sub-processes
+            read_lock = mp.Lock()
+            write_lock = mp.Lock()
+            processes = []
+            for i in range(procs):
+                processes += [mp.Process(target = process, args = (read_lock, write_lock,
+                                                                   meier_path, meier_set_names_stack,
+                                                                   c_proc_batch_spans[i],
+                                                                   save_path,
+                                                                   label, _id))]
 
-        # Process batch
-        for i in range(procs):
-            processes[i].start()
+            # Process batch
+            for i in range(procs):
+                processes[i].start()
 
-        # Join processes
-        for i in range(procs):
-            processes[i].join()
+            # Join processes
+            for i in range(procs):
+                processes[i].join()
 
         print('\t\t..saved!')
