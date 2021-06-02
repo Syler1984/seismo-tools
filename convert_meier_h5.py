@@ -9,7 +9,7 @@ import multiprocessing as mp
 from utils.h5_tools import write_batch
 
 
-def convert_data(dataset, idx, lock):
+def convert_data(dataset, idx, lock, no_filter, no_detrend):
     """
     Converts data from meier format to requiered:
         1. Detrend.
@@ -41,8 +41,10 @@ def convert_data(dataset, idx, lock):
         trace = oc.Trace(data = chan)
         trace.stats.sampling_rate = 100
 
-        trace.detrend(type = 'linear')
-        trace.filter(type = 'highpass', freq = 2.)
+        if not no_detrend:
+            trace.detrend(type = 'linear')
+        if not no_filter:
+            trace.filter(type = 'highpass', freq = 2.)
 
         X[:, i] = trace.data
 
@@ -67,7 +69,9 @@ def convert_data(dataset, idx, lock):
     return X.reshape((1, *X.shape))
 
 
-def process(path, names_stack, span, save_path, label, id, read_lock = None, write_lock = None):
+def process(path, names_stack, span, save_path, label,
+            id, read_lock = None, write_lock = None,
+            no_filter = False, no_detrend = False):
     """
     Represents single data conversion process
     :param path: Path to original .h5 file
@@ -78,6 +82,8 @@ def process(path, names_stack, span, save_path, label, id, read_lock = None, wri
     :param id: ID dataset value
     :param read_lock: multiprocessing lock for original .h5 file
     :param write_lock: multiprocessing lock for converted .h5 file
+    :param no_filter: disable filter
+    :param no_detrend: disable detrend
     :return:
     """
     batch_size = span[1] - span[0]
@@ -93,7 +99,7 @@ def process(path, names_stack, span, save_path, label, id, read_lock = None, wri
         b = 0
         for i in range(span[0], span[1]):
 
-            X[b] = convert_data(meier_set, i, read_lock)
+            X[b] = convert_data(meier_set, i, read_lock, no_filter, no_detrend)
             b += 1
 
         if write_lock:
@@ -125,6 +131,8 @@ if __name__ == '__main__':
                                                      ', default: 10000', default = 1000)
     parser.add_argument('--inspect', help = 'Use this flag to print info about Meier dataset without'
                                             ' performing data conversion', action = 'store_true')
+    parser.add_argument('--no-filter', help = 'Disable filter', action = 'store_true')
+    parser.add_argument('--no-detrend', help = 'Disable detrend', action = 'store_true')
 
     args = parser.parse_args()
 
@@ -206,7 +214,8 @@ if __name__ == '__main__':
             process(meier_path, meier_set_names_stack,
                     c_proc_batch_spans[0],
                     save_path,
-                    label, _id)
+                    label, _id,
+                    no_filter = args.no_filter, no_detrend = args.no_detrend)
         else:
             # Preparing sub-processes
             read_lock = mp.Lock()
@@ -217,7 +226,8 @@ if __name__ == '__main__':
                                                                    c_proc_batch_spans[i],
                                                                    save_path,
                                                                    label, _id,
-                                                                   read_lock, write_lock))]
+                                                                   read_lock, write_lock,
+                                                                   args.no_filter, args.no_detrend))]
 
             # Process batch
             for i in range(procs):
