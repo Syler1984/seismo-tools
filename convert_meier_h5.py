@@ -9,7 +9,7 @@ import multiprocessing as mp
 from utils.h5_tools import write_batch
 
 
-def convert_data(dataset, idx, lock, no_filter, no_detrend):
+def convert_data(data, no_filter, no_detrend):
     """
     Converts data from meier format to requiered:
         1. Detrend.
@@ -17,56 +17,58 @@ def convert_data(dataset, idx, lock, no_filter, no_detrend):
         3. Slice.
         4. Local absolute max normalization.
     """
-    # Get data
-    if lock:
-        lock.acquire()
-        try:
-            data = dataset[:, idx, :]
-        finally:
-            lock.release()
-    else:
-        data = dataset[:, idx, :]
+    X = np.zeros((data.shape[1], data.shape[2], 3))
 
-    channels = [data[i, :] for i in range(data.shape[0])]
+    for i in range(data.shape[1]):
 
-    d_length = data.shape[1]
-    r_length = 400
-    ch_num = len(channels)
+        c_data = data[:, i, :]
 
-    X = np.zeros((d_length, ch_num))
+        channels = [c_data[j, :] for j in range(c_data.shape[0])]
 
-    # Process
-    for i, chan in enumerate(channels):
+        d_length = c_data.shape[1]
+        r_length = 400
+        ch_num = len(channels)
 
-        trace = oc.Trace(data = chan)
-        trace.stats.sampling_rate = 100
+        X = np.zeros((d_length, ch_num))
 
-        if not no_detrend:
-            trace.detrend(type = 'linear')
-        if not no_filter:
-            trace.filter(type = 'highpass', freq = 2.)
+        # Process
+        for j, chan in enumerate(channels):
 
-        X[:, i] = trace.data
+            if no_detrend and no_filter:
+                X[i, :, j] = chan
+            else:
+                trace = oc.Trace(data = chan)
+                trace.stats.sampling_rate = 100
+
+                if not no_detrend:
+                    trace.detrend(type = 'linear')
+                if not no_filter:
+                    trace.filter(type = 'highpass', freq = 2.)
+
+                X[i, :, j] = trace.data
 
     # Slice
-    X = X[:r_length, :]
+    X = X[:, :r_length, :]
 
     # Normalize
     global_norm = True
 
     if global_norm:
 
-        loc_max = np.max(np.abs(X[:, :]))
-        X[:, :] = X[:, :] / loc_max
+        for i in range(X.shape[0]):
+
+            loc_max = np.max(np.abs(X[i, :, :]))
+            X[i, :, :] = X[i, :, :] / loc_max
 
     else:
 
-        for i in range(ch_num):
+        for i in range(X.shape[0]):
+            for j in range(ch_num):
 
-            loc_max = np.max(np.abs(X[:, i]))
-            X[:, i] = X[:, i] / loc_max
+                loc_max = np.max(np.abs(X[i, :, j]))
+                X[i, :, j] = X[i, :, j] / loc_max
 
-    return X.reshape((1, *X.shape))
+    return X
 
 
 def process(path, names_stack, span, save_path, label,
@@ -87,33 +89,41 @@ def process(path, names_stack, span, save_path, label,
     :return:
     """
     batch_size = span[1] - span[0]
-    X = np.zeros((batch_size, 400, 3))
     Y = np.full(batch_size, label, dtype = int)
     Z = np.full(batch_size, id, dtype = object)
 
+    # Read data
     with h5.File(path, 'r') as meier_set:
 
         for s_name in names_stack:
             meier_set = meier_set[s_name]
 
-        b = 0
-        for i in range(span[0], span[1]):
-
-            X[b] = convert_data(meier_set, i, read_lock, no_filter, no_detrend)
-            b += 1
-
-        if write_lock:
-            write_lock.acquire()
+        # Get data
+        if read_lock:
+            read_lock.acquire()
             try:
-                write_batch(save_path, 'X', X)
-                write_batch(save_path, 'Y', Y)
-                write_batch(save_path, 'Z', Z, string = True)
+                data = meier_set[:, span[0]:span[1], :]
             finally:
-                write_lock.release()
+                read_lock.release()
         else:
+            data = meier_set[:, span[0]:span[1], :]
+
+    # Convert data
+    X = convert_data(data, no_filter, no_detrend)
+
+    # Save data
+    if write_lock:
+        write_lock.acquire()
+        try:
             write_batch(save_path, 'X', X)
             write_batch(save_path, 'Y', Y)
             write_batch(save_path, 'Z', Z, string = True)
+        finally:
+            write_lock.release()
+    else:
+        write_batch(save_path, 'X', X)
+        write_batch(save_path, 'Y', Y)
+        write_batch(save_path, 'Z', Z, string = True)
 
 
 if __name__ == '__main__':
