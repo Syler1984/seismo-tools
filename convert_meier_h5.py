@@ -29,8 +29,6 @@ def convert_data(data, no_filter, no_detrend):
         r_length = 400
         ch_num = len(channels)
 
-        X = np.zeros((d_length, ch_num))
-
         # Process
         for j, chan in enumerate(channels):
 
