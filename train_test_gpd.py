@@ -123,7 +123,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load model
-    default_gpd_model = 'generalized-phase-detection/model_pol.json'
+    default_gpd_model = '../generalized-phase-detection/model_pol.json'
 
     if args.gpd:
 
@@ -148,9 +148,9 @@ if __name__ == '__main__':
 
     # Prepare datasets info
     datasets = {
-        'cali': '/path/to/cali',
-        'sak': '/path/to/sak',
-        'dag': '/path/to/dag'
+        'cali': '/home/vchernyh/jamm/DATA/scsn_ps_2000_2017_shuf.hdf5',
+        'sak': '/home/vchernyh/chernykh/data/2014_2021_global_norm_sh_bh.h5',
+        'dag': '/home/vchernyh/chernykh/data/dagestan_2014_2020_global_norm_sh_bh.h5'
     }
 
     if args.train_cali:
