@@ -1,15 +1,10 @@
 """
-This script plots a slice of seismic trace animation.
-You can change animation, filtering and other parameters (eg. slice time span, file name) either in
-dedicated section "Parameters" or by using command line arguments.
-Use "-h" option for command line arguments description.
+This script plots a slice of seismic trace butterworth highpass filtering animation.
+You can change animation, filtering and other parameters (eg. slice time span, file name) in
+dedicated section "Parameters".
 
 Usage:
 "python animate_filter.py"
-OR
-"python animate_filter.py [OPTION VALUE]"
-OR
-"python animate_filter.py -h"
 
 If no ffmpeg found during animation saving, run:
 "conda install -c conda-forge ffmpeg"
