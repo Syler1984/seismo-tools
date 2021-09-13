@@ -59,6 +59,7 @@ def plot_filtered(figure, axes, plot, stream, freq, frame, do_filter):
     freq = freq
     stream = stream.copy()
 
+    # Apply filter (or not) and update figure title
     if do_filter:
         stream.filter('highpass', freq=freq)
         if freq >= 0.:
@@ -70,8 +71,11 @@ def plot_filtered(figure, axes, plot, stream, freq, frame, do_filter):
     else:
         figure.suptitle(f'no filter')
 
+    # Update Ox and Oy limits
     axes.set_xlim(0, stream[0].data.shape[0])
     axes.set_ylim(np.min(stream[0].data), np.max(stream[0].data))
+
+    # Update plot
     plot.set_data(np.array(range(stream[0].data.shape[0])), stream[0].data)
 
 
@@ -82,8 +86,6 @@ def plot_stream(data, figure, axes, plot, stream):
         plot_filtered(figure, axes, plot, stream, frequency, frame, False)
     else:
         plot_filtered(figure, axes, plot, stream, frequency, frame, True)
-
-    return plot
 
 
 def frequencies() -> object:
