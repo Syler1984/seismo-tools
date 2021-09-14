@@ -32,6 +32,8 @@ slice_end = 60
 highpass_frequency = 2.
 normalize_stream = True
 
+hide_y_labels = True
+
 window_length = 20
 plot_length = 18.5
 
@@ -61,7 +63,7 @@ def prepare_stream(stream, start=None, end=None):
     if not start:
         start = stream[0].stats.starttime
     elif type(start) in [float, int]:
-        start = stream[0].stats.starttime + start * 60.
+        start = stream[0].stats.starttime + start
     else:
         start = UTCDateTime(start)
 
@@ -122,6 +124,11 @@ if __name__ == '__main__':
             y_max = np.max(stream) * 1.1
 
         ax.set_ylim(-y_max, y_max)
+
+    if hide_y_labels:
+        for ax in axes:
+            y_axis = ax.get_yaxis()
+            y_axis.set_visible(False)
 
     x_length = min([stream.shape[0] for stream in streams])
     for i in range(len(streams)):
