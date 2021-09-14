@@ -23,14 +23,14 @@ save_fps = 60
 animation_dt = 10
 
 stream_path = 'C:/data/seismic_streams/NYSH.IM.00.EHZ.2021.091'
-save_animation = False
+save_animation = True
 save_name = 'sta_lta_60sec.gif'
 
 slice_start = '2021-04-01T12:35:30'
 slice_end = 60
 window_length = 20
-lta_length = 12
-sta_length = 3
+lta_length = 8
+sta_length = 2
 
 actual_slice_end = slice_end + 20
 
@@ -42,11 +42,19 @@ sta_lta_threshold = 2.
 
 events = ['2021-04-01T12:35:55.5', '2021-04-01T12:36:05']
 
+plot_step = 100
+
+ratio_gradient_start = '#3d3685'
+ratio_gradient_end = '#bd2a33'
+ratio_start = 0
+ratio_end = 4
+
+max_plot_length = 800
+
 
 # Functions
-def prepare_plot(figure_size=(14, 8), dpi=90):
+def prepare_plot(figure_size=(13, 4), dpi=90, frequency=100, w_length=1000, step=50):
     figure = plt.figure(figsize=figure_size, dpi=dpi)
-    figure.suptitle('STA/LTA')
 
     axes = figure.subplots(3, 1, sharex=True)
     axes = {
@@ -55,16 +63,129 @@ def prepare_plot(figure_size=(14, 8), dpi=90):
         'ratio': axes[2]
     }
 
+    n_steps = w_length // step
+    if w_length % step:
+        n_steps += 1
+
     plots = {
         'wave': axes['wave'].plot([], [], lw=1., color='#000')[0],
         'sta': axes['sta_lta'].plot([], [], '--', lw=1., color='#4290f5')[0],
         'lta': axes['sta_lta'].plot([], [], lw=1., color='#f54263')[0],
-        'ratio': axes['ratio'].plot([], [], lw=1., color='#000')[0]
+        'ratio': [axes['ratio'].plot([], [], lw=1., color='#000')[0] for _ in range(n_steps)]
     }
 
     figure.tight_layout()
 
     return figure, axes, plots
+
+
+def hex_color(color):
+    """
+    Convert hex color string to four int values: rgba
+    :param color:
+    :return: (int, int, int, int)
+    """
+    if color[0] == '#':
+        color = color[1:]
+
+    alpha = 255
+    if len(color) in [3, 4]:
+        red = int(color[0]*2, 16)
+        green = int(color[1]*2, 16)
+        blue = int(color[2]*2, 16)
+        if len(color) == 4:
+            alpha = int(color[3]*2, 16)
+    elif len(color) in [6, 8]:
+        red = int(color[:2], 16)
+        green = int(color[2:4], 16)
+        blue = int(color[4:6], 16)
+        if len(color) == 8:
+            alpha = int(color[6:8], 16)
+    else:
+        raise AttributeError('Failed to parse hex color! Please, make sure that color is in one of these formats: '
+                             '"#rgb" "#rgba" "#rrggbb" "#rrggbbaa"')
+
+    return red, green, blue, alpha
+
+
+def gradient(value, color_1, color_2, value_1, value_2):
+    """
+    Returns color linearly based on value's position between value_1 or value_2 as left and right borders.
+    """
+    if value_1 >= value_2:
+        raise AttributeError('value_1 should be lower than value_2!')
+    if value <= value_1:
+        return color_1
+    if value >= value_2:
+        return color_2
+
+    value_diff = value_2 - value_1
+    value_x = (value - value_1)/value_diff  # value relative offset
+
+    red_diff = color_2[0] - color_1[0]
+    green_diff = color_2[1] - color_1[1]
+    blue_diff = color_2[2] - color_1[2]
+    alpha_diff = color_2[3] - color_1[3]
+
+    red = int(red_diff * value_x + color_1[0])
+    green = int(green_diff * value_x + color_1[1])
+    blue = int(blue_diff * value_x + color_1[2])
+    alpha = int(alpha_diff * value_x + color_1[3])
+
+    return red, green, blue, alpha
+
+
+def _chs(channel):
+    """
+    Returns string representation of a single color channel in hex (type str)
+    """
+    if channel < 15:
+        return '0' + hex(channel)[2:]
+    return hex(channel)[2:]
+
+
+def color_hex_string(color):
+    """
+    Returns hex string representation of a int color tuple: (r,g,b,a)
+    """
+    return f'#{_chs(color[0])}{_chs(color[1])}{_chs(color[2])}{_chs(color[3])}'
+
+
+def plot_gradient(plots, x_data, y_data, min_value, max_value, min_color, max_color, step = 10):
+
+    # Split data, initialize split vectors for x_data, y_data and colors
+    data_length = x_data.shape[0]
+    n_steps = len(plots)
+    last_step = data_length % step
+    if last_step:
+        n_steps -= 1
+        last_plot = plots[-1]
+        plots = plots[:-1]
+
+    if last_step:
+        x_steps = np.resize(x_data[:-last_step], (n_steps, step))
+        y_steps = np.resize(y_data[:-last_step], (n_steps, step))
+    else:
+        x_steps = np.resize(x_data, (n_steps, step))
+        y_steps = np.resize(y_data, (n_steps, step))
+
+    # Split colors into three (four) hex values
+    min_color = hex_color(min_color)
+    max_color = hex_color(max_color)
+
+    # Plot fragments
+    for x, y, plot in zip(x_steps, y_steps, plots):
+        # Calculate colors for every step
+        color = color_hex_string(gradient(int(y.mean()), min_color, max_color, min_value, max_value))
+        plot.set_color(color)
+        plot.set_data(x, y)
+
+    if last_step:
+        x = x_data[-last_step:]
+        y = y_data[-last_step:]
+        color = color_hex_string(gradient(int(y.mean()), min_color, max_color, min_value, max_value))
+        last_plot.set_color(color)
+        last_plot.set_data(x, y)
 
 
 def plot_stream(i, figure, axes, plots, wave, sta, lta, sta_lta_ratio, w_length, events):
@@ -74,10 +195,28 @@ def plot_stream(i, figure, axes, plots, wave, sta, lta, sta_lta_ratio, w_length,
         ax.set_xlim(i, i + w_length)
 
     plots['wave'].set_data(x_data[i:i + w_length], wave[i:i + w_length])
-    plots['sta'].set_data(x_data[i:i + w_length], sta[i:i + w_length])
-    plots['lta'].set_data(x_data[i:i + w_length], lta[i:i + w_length])
-    plots['ratio'].set_data(x_data[i:i + w_length], sta_lta_ratio[i:i + w_length])
 
+    # Plot calculated data
+    global max_plot_length
+
+    m_length = w_length
+    if max_plot_length and m_length > max_plot_length:
+        m_length = max_plot_length
+
+    plots['sta'].set_data(x_data[i:i + m_length], sta[i:i + m_length])
+    plots['lta'].set_data(x_data[i:i + m_length], lta[i:i + m_length])
+
+    # Plot sta/lta ratio
+    global ratio_gradient_start
+    global ratio_gradient_end
+    global ratio_start
+    global ratio_end
+    global plot_step
+
+    plot_gradient(plots['ratio'], x_data[i:i + m_length], sta_lta_ratio[i:i + m_length],
+                  ratio_start, ratio_end, ratio_gradient_start, ratio_gradient_end, step=plot_step)
+
+    # plots['ratio'].set_data(x_data[i:i + w_length], sta_lta_ratio[i:i + w_length])
     # axes['ratio'].vlines(sta_lta_threshold, 0, 2., color='#ff4a4a66', lw=2)
 
 
@@ -172,8 +311,10 @@ if __name__ == '__main__':
     wave, sta, lta, sta_lta_ratio, \
         lta_samples_length, window_samples_length = build_data(st, sta_length, lta_length, window_length)
 
+    stream_frequency = st[0].stats.sampling_rate
+
     # Setup plots
-    figure, axes, plots = prepare_plot()
+    figure, axes, plots = prepare_plot(w_length=window_samples_length, frequency=stream_frequency, step=plot_step)
 
     axes['wave'].set_ylabel('Wave')
     axes['sta_lta'].set_ylabel('STA & LTA')
