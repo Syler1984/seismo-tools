@@ -15,11 +15,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from obspy import read, UTCDateTime
-import sys
 
 # Parameters
-pause = False
-
 save_fps = 60
 animation_dt = 10
 
