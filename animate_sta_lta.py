@@ -16,14 +16,14 @@ from matplotlib.animation import FuncAnimation
 from obspy import read, UTCDateTime
 from obspy.signal.trigger import classic_sta_lta
 
+
 # Parameters
-pause = False
+save_animation = True
 
 save_fps = 60
 animation_dt = 10
 
 stream_path = 'C:/data/seismic_streams/NYSH.IM.00.EHZ.2021.091'
-save_animation = True
 save_name = 'sta_lta_60sec.gif'
 
 slice_start = '2021-04-01T12:35:30'
@@ -50,6 +50,9 @@ ratio_start = 0
 ratio_end = 4
 
 max_plot_length = 800
+
+# Internally used parameters
+pause = False
 
 
 # Functions
