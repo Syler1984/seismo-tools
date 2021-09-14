@@ -316,10 +316,6 @@ if __name__ == '__main__':
     # Setup plots
     figure, axes, plots = prepare_plot(w_length=window_samples_length, frequency=stream_frequency, step=plot_step)
 
-    axes['wave'].set_ylabel('Wave')
-    axes['sta_lta'].set_ylabel('STA & LTA')
-    axes['ratio'].set_ylabel('STA/LTA')
-
     max_ratio = np.max(sta_lta_ratio)
     max_ratio *= 1.1
     max_sta_lta = max(np.max(sta), np.max(lta))
