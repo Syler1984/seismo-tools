@@ -15,6 +15,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from obspy import read, UTCDateTime
+from os import listdir
+from os.path import isdir, isfile, join
 
 # Parameters
 save_fps = 60
@@ -22,11 +24,11 @@ animation_dt = 10
 
 animation_step = 5
 
-streams_paths = ['C:/data/seismic_streams/NYSH.IM.00.EHZ.2021.091']
-save_animation = False
-save_name = 'stream_60sec.gif'
+streams_paths = ['C:/data/seismic_streams/']
+save_animation = True
+save_name = 'stream_60sec_many.gif'
 
-slice_start = '2021-04-01T12:35:30'
+slice_start = 45330
 slice_end = 60
 
 highpass_frequency = 2.
@@ -85,7 +87,10 @@ def prepare_stream(stream, start=None, end=None):
     if highpass_frequency:
         stream.filter(type='highpass', freq=highpass_frequency)
 
-    return stream[0].data
+    if len(stream) == 1:
+        return stream[0].data
+    else:
+        return None
 
 
 def plot_stream(i, figure, axes, plots, streams, x_data):
@@ -103,6 +108,11 @@ def plot_stream(i, figure, axes, plots, streams, x_data):
 
 if __name__ == '__main__':
 
+    # Parse input
+    if len(streams_paths) == 1 and isdir(streams_paths[0]):
+        streams_dir = streams_paths[0]
+        streams_paths = [join(streams_dir, f) for f in listdir(streams_dir) if isfile(join(streams_dir, f))]
+
     # From seconds to samples
     window_length = int(data_sampling_rate * window_length)
     plot_length = int(data_sampling_rate * plot_length)
@@ -111,7 +121,12 @@ if __name__ == '__main__':
     streams = [read(x) for x in streams_paths]
     print(f'Read seismic stream(s), total stream read: {len(streams)}')
 
-    streams = [prepare_stream(x, slice_start, slice_end) for x in streams]
+    t_streams = []
+    for x in streams:
+        stream = prepare_stream(x, slice_start, slice_end)
+        if stream is not None:
+            t_streams.append(stream)
+    streams = t_streams
 
     # Setup plots
     figure, axes, plots = prepare_plot(len(streams))
