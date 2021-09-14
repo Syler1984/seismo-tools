@@ -25,24 +25,26 @@ animation_dt = 10
 animation_step = 5
 
 streams_paths = ['C:/data/seismic_streams/']
+max_plots = 30
 save_animation = True
 save_name = 'stream_60sec_many.gif'
 
 slice_start = 45330
-slice_end = 60
+slice_end = 120
 
 highpass_frequency = 2.
 normalize_stream = True
 
 hide_y_labels = True
+hide_x_labels = True
 
-window_length = 20
-plot_length = 18.5
+window_length = 40
+plot_length = 37
 
 data_sampling_rate = 100
 
 
-def prepare_plot(v_num=1, figure_size=(13, 4), dpi=90):
+def prepare_plot(v_num=1, figure_size=(13, 5), dpi=90):
     figure = plt.figure(figsize=figure_size, dpi=dpi)
     axes = figure.subplots(v_num, 1, sharex=True)
 
@@ -51,8 +53,6 @@ def prepare_plot(v_num=1, figure_size=(13, 4), dpi=90):
     except TypeError:
         axes = [axes]
         plots = [ax.plot([], [], lw=1., color='#000')[0] for ax in axes]
-
-    figure.tight_layout()
 
     return figure, axes, plots
 
@@ -113,6 +113,9 @@ if __name__ == '__main__':
         streams_dir = streams_paths[0]
         streams_paths = [join(streams_dir, f) for f in listdir(streams_dir) if isfile(join(streams_dir, f))]
 
+        if len(streams_paths) > max_plots:
+            streams_paths = streams_paths[:max_plots]
+
     # From seconds to samples
     window_length = int(data_sampling_rate * window_length)
     plot_length = int(data_sampling_rate * plot_length)
@@ -145,11 +148,17 @@ if __name__ == '__main__':
             y_axis = ax.get_yaxis()
             y_axis.set_visible(False)
 
+    if hide_x_labels:
+        for ax in axes[:-1]:
+            x_axis = ax.get_xaxis()
+            x_axis.set_visible(False)
+
     x_length = min([stream.shape[0] for stream in streams])
     for i in range(len(streams)):
         if streams[i].shape[0] > x_length:
             streams[i] = streams[i][:x_length]
 
+    figure.tight_layout()
     x_data = np.arange(x_length)
 
     # Start animation
