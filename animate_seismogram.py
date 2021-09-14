@@ -36,12 +36,12 @@ highpass_frequency = 2.
 normalize_stream = True
 
 window_length = 20
-plot_length = 10
+plot_length = 18.5
 
 data_sampling_rate = 100
 
 
-def prepare_plot(v_num=1, figure_size=(14, 4), dpi=90):
+def prepare_plot(v_num=1, figure_size=(13, 4), dpi=90):
     figure = plt.figure(figsize=figure_size, dpi=dpi)
     axes = figure.subplots(v_num, 1, sharex=True)
 
@@ -93,6 +93,7 @@ def plot_stream(i, figure, axes, plots, streams, x_data):
 
     global window_length
     global plot_length
+    global x_length
 
     for ax in axes:
         ax.set_xlim(i, i + window_length)
@@ -133,7 +134,7 @@ if __name__ == '__main__':
     x_data = np.arange(x_length)
 
     # Start animation
-    animation = FuncAnimation(figure, plot_stream, range(0, x_length, animation_step),
+    animation = FuncAnimation(figure, plot_stream, range(0, x_length - plot_length, animation_step),
                               fargs=[figure, axes, plots, streams, x_data],
                               blit=False, interval=animation_dt, repeat=True, save_count=600)
 
