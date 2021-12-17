@@ -23,17 +23,14 @@ save_animation = True
 save_fps = 60
 animation_dt = 20
 
-stream_path = 'C:/data/seismic_streams/NYSH.IM.00.EHZ.2021.091'
-save_name = 'sta_lta_60sec_skip.gif'
+stream_path = '0_wave.npy'
+prediction_path = '0_scores.npy'
+save_name = 'probability_60sec.gif'
 
-slice_start = '2021-04-01T12:35:30'
-slice_end = 60
 window_length = 20
 max_plot_length = 800
 lta_length = 8
 sta_length = 2
-
-actual_slice_end = slice_end + 20
 
 highpass_frequency = 2
 
@@ -50,8 +47,6 @@ ratio_gradient_end = '#f54263'
 ratio_start = 0
 ratio_end = 3
 
-max_plot_length = 800
-
 # Internally used parameters
 pause = False
 
@@ -60,11 +55,10 @@ pause = False
 def prepare_plot(figure_size=(13, 4), dpi=90, frequency=100, w_length=1000, step=50):
     figure = plt.figure(figsize=figure_size, dpi=dpi)
 
-    axes = figure.subplots(3, 1, sharex=True)
+    axes = figure.subplots(2, 1, sharex=True)
     axes = {
         'wave': axes[0],
-        'sta_lta': axes[1],
-        'ratio': axes[2]
+        'scores': axes[1]
     }
 
     n_steps = w_length // step
@@ -73,9 +67,8 @@ def prepare_plot(figure_size=(13, 4), dpi=90, frequency=100, w_length=1000, step
 
     plots = {
         'wave': axes['wave'].plot([], [], lw=1., color='#000')[0],
-        'sta': axes['sta_lta'].plot([], [], '--', lw=1., color='#4290f5')[0],
-        'lta': axes['sta_lta'].plot([], [], lw=1., color='#f54263')[0],
-        'ratio': [axes['ratio'].plot([], [], lw=1., color='#000')[0] for _ in range(n_steps)]
+        'p-scores': [axes['scores'].plot([], [], lw=1., color='#000')[0] for _ in range(n_steps)],
+        's-scores': [axes['scores'].plot([], [], '--', lw=1., color='#000')[0] for _ in range(n_steps)]
     }
 
     figure.tight_layout()
@@ -192,13 +185,14 @@ def plot_gradient(plots, x_data, y_data, min_value, max_value, min_color, max_co
         last_plot.set_data(x, y)
 
 
-def plot_stream(i, figure, axes, plots, wave, sta, lta, sta_lta_ratio, w_length, events):
+def plot_stream(i, figure, axes, plots, wave, scores, w_length, events):
+
     x_data = np.arange(wave.shape[0])
 
     for _, ax in axes.items():
         ax.set_xlim(i, i + w_length)
 
-    plots['wave'].set_data(x_data[i:i + w_length], wave[i:i + w_length])
+    plots['wave'].set_data(x_data[i:i + w_length], wave[i:i + w_length, 1])
 
     # Plot calculated data
     global max_plot_length
@@ -207,9 +201,6 @@ def plot_stream(i, figure, axes, plots, wave, sta, lta, sta_lta_ratio, w_length,
     if max_plot_length and m_length > max_plot_length:
         m_length = max_plot_length
 
-    plots['sta'].set_data(x_data[i:i + m_length], sta[i:i + m_length])
-    plots['lta'].set_data(x_data[i:i + m_length], lta[i:i + m_length])
-
     # Plot sta/lta ratio
     global ratio_gradient_start
     global ratio_gradient_end
@@ -217,124 +208,44 @@ def plot_stream(i, figure, axes, plots, wave, sta, lta, sta_lta_ratio, w_length,
     global ratio_end
     global plot_step
 
-    plot_gradient(plots['ratio'], x_data[i:i + m_length], sta_lta_ratio[i:i + m_length],
+    plot_gradient(plots['p-scores'], x_data[i:i + m_length], scores[i:i + m_length, 0],
                   ratio_start, ratio_end, ratio_gradient_start, ratio_gradient_end, step=plot_step)
-
-
-def prepare_stream(stream, start=None, end=None, w_length=0, normalize=False, frequency=0., events=None):
-
-    if not events:
-        events = []
-
-    if not start:
-        start = stream[0].stats.starttime
-    elif type(start) in [float, int]:
-        start = stream[0].stats.starttime + start * 60.
-    else:
-        start = UTCDateTime(start)
-    display_end = None
-    if not end:
-        end = stream[-1].stats.endtime
-        display_end = end - w_length
-    elif type(end) in [float, int]:
-        end = start + end
-        display_end = end
-        end += w_length
-    else:
-        end = UTCDateTime(end)
-        display_end = end
-        end += w_length
-
-    display_length = display_end - start
-    if display_length < window_length:
-        raise AttributeError('Available length of a stream to plot is shorter than window_length! '
-                             'Please, adjust slice_start, slice_end or window_length. '
-                             f'\nCurrent window_length: {w_length} s, '
-                             f'current available stream length: {display_length} s')
-
-    stream = stream.slice(start, end)
-
-    if len(stream) > 1:
-        raise AttributeError('Stream has more than one trace on sliced data! '
-                             'Please, chose slice on continuous data span.')
-
-    if normalize:
-        stream.normalize()
-    if frequency:
-        stream.filter(type='highpass', freq=frequency)
-
-    # Convert events to sample positions
-    stream_frequency = stream[0].stats.sampling_rate
-    events = [int((x - start)*stream_frequency) for x in events]
-
-    return stream, start, end, events
-
-
-def window_average(data, w_length, default_length, default_value=0.):
-    result = np.full(data.shape[0], default_value)
-    for i in range(default_length, data.shape[0]):
-        result[i] = np.mean(np.abs(data[i - w_length:i]))
-
-    return result
-
-
-def build_data(stream, sta_length, lta_length, w_length):
-    stream_data = stream[0].data
-    frequency = int(stream[0].stats.sampling_rate)
-
-    # Translate from seconds to samples
-    l_samples_sta = sta_length * frequency
-    l_samples_lta = lta_length * frequency
-    l_samples_w_length = w_length * frequency
-
-    sta = window_average(stream_data, l_samples_sta, l_samples_lta, 0.)
-    lta = window_average(stream_data, l_samples_lta, l_samples_lta, 0.001)
-
-    sta_lta = sta / lta
-
-    return stream_data, sta, lta, sta_lta, l_samples_lta, l_samples_w_length
+    plot_gradient(plots['s-scores'], x_data[i:i + m_length], scores[i:i + m_length, 1],
+                  ratio_start, ratio_end, '#34db1a', ratio_gradient_end, step=plot_step)
 
 
 if __name__ == '__main__':
 
     # Events to UTCDateTime
-    events = [UTCDateTime(x) for x in events]
+    events = [2650, 3450]
 
     # Read data
-    st = read(stream_path)
-    s_start = st[0].stats.starttime.strftime("%d.%m.%YT%H:%M:%S")
-    s_end = st[-1].stats.endtime.strftime("%d.%m.%YT%H:%M:%S")
-    print(f'Read seismic stream with {len(st)} traces and time span: {s_start} - {s_end}')
+    wave = np.load(stream_path)
+    scores = np.load(prediction_path)
 
-    st, start, end, events = prepare_stream(st, slice_start, slice_end, window_length,
-                                            normalize_stream, highpass_frequency, events)
+    w_max = np.max(np.abs(wave))
+    wave /= w_max
 
-    wave, sta, lta, sta_lta_ratio, \
-        lta_samples_length, window_samples_length = build_data(st, sta_length, lta_length, window_length)
-
-    stream_frequency = st[0].stats.sampling_rate
+    stream_frequency = 100
+    window_samples_length = window_length * stream_frequency
 
     # Setup plots
     figure, axes, plots = prepare_plot(w_length=window_samples_length, frequency=stream_frequency, step=plot_step)
 
-    max_ratio = np.max(sta_lta_ratio)
-    max_ratio *= 1.1
-    max_sta_lta = max(np.max(sta), np.max(lta))
+    max_prediction = np.max(scores) * 1.1
     extra_min_max = 0.1 * (np.max(wave) - np.min(wave))
 
     axes['wave'].set_ylim(np.min(wave) - extra_min_max, np.max(wave) + extra_min_max)
-    axes['sta_lta'].set_ylim(0, max_sta_lta)
-    axes['ratio'].set_ylim(0, max_ratio)
-
-    axes['ratio'].axhline(sta_lta_threshold, color='#ff4a4a66', lw=2)
+    axes['scores'].set_ylim(0, max_prediction)
+    axes['scores'].axhline(0.95, color='#ff4a4a66', lw=2)
 
     for x in events:
         axes['wave'].axvline(x, color='#ff4a4a66', lw=2)
 
     # Start animation
     animation = FuncAnimation(figure, plot_stream,
-                              range(lta_samples_length, wave.shape[0] - window_samples_length, 5),
-                              fargs=[figure, axes, plots, wave, sta, lta, sta_lta_ratio, window_samples_length, events],
+                              range(0, wave.shape[0] - window_samples_length, 10),
+                              fargs=[figure, axes, plots, wave, scores, window_samples_length, events],
                               blit=False, interval=animation_dt, repeat=True, save_count=600)
 
     plt.show()

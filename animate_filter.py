@@ -18,18 +18,22 @@ from obspy import read, UTCDateTime
 # Parameters
 pause = False
 
-save_fps = 60
-animation_dt = 10
+save_fps = 30
+animation_dt = 30
 
-stream_path = 'C:/data/seismic_streams/NYSH.IM.00.EHZ.2021.091'
+# stream_path = 'C:/data/seismic_streams/NYSH.IM.00.EHZ.2021.091'
+stream_path = 'C:/data/seismic_streams/LNSK.IM.10.SHZ.2016.314'
 save_animation = True
-save_name = 'filter_60sec.gif'
+save_name = 'filter_need_before_cut.gif'
 
-slice_start = '2021-04-01T12:35:30'
-slice_end = 60
+# slice_start = '2021-04-01T12:35:30'
+slice_start = 120
+slice_end = 360
 
-highpass_frequencies = [(0., 0., 20), (0.0001, 0.001, 100),
-                        (0.001, 0.1, 300), (0.1, 0.5, 100), (0.5, 1., 50), (1., 2., 100), (2., 2., 100)]
+# highpass_frequencies = [(0., 0., 20), (0.0001, 0.001, 100),
+#                         (0.001, 0.1, 300), (0.1, 0.5, 100), (0.5, 1., 50), (1., 2., 100), (2., 2., 100)]
+
+highpass_frequencies = [0.1]
 
 normalize_stream = True
 
@@ -66,12 +70,19 @@ def plot_filtered(figure, axes, plot, stream, freq, frame, do_filter):
     else:
         figure.suptitle(f'no filter')
 
+    data = stream[0].data
+    global normalize_stream
+    if normalize_stream:
+        max_data = np.max(np.abs(data))
+        data /= max_data
+        # stream.normalize()
+
     # Update Ox and Oy limits
     axes.set_xlim(0, stream[0].data.shape[0])
     axes.set_ylim(np.min(stream[0].data), np.max(stream[0].data))
 
     # Update plot
-    plot.set_data(np.array(range(stream[0].data.shape[0])), stream[0].data)
+    plot.set_data(np.array(range(0, stream[0].data.shape[0])), data)
 
 
 def plot_stream(data, figure, axes, plot, stream):
@@ -112,8 +123,23 @@ def prepare_stream(stream, start=None, end=None, normalize=False):
         end = UTCDateTime(end)
 
     stream = stream.slice(start, end)
+
     if normalize:
         stream.normalize()
+
+    # Generate sin
+    length = stream[0].data.shape[0]
+    data = np.arange(length)
+    data = 0.2 * np.sin(data * 0.00005) + stream[0].data
+    stream[0].data = data
+
+    if normalize:
+        stream.normalize()
+
+    # Generate random noise
+    # np.random.seed(42)
+    # data += (np.random.rand(length) - 0.5) * 0.004
+
     return stream
 
 
@@ -130,7 +156,7 @@ if __name__ == '__main__':
 
     animation = FuncAnimation(figure, plot_stream, frequencies,
                               fargs=[figure, axes, plot, st],
-                              blit=False, interval=animation_dt, repeat=True, save_count=600)
+                              blit=False, interval=animation_dt, repeat=True, save_count=1)
 
     # Display the animation
     plt.show()

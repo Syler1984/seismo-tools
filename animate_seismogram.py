@@ -20,14 +20,14 @@ from os.path import isdir, isfile, join
 
 # Parameters
 save_fps = 60
-animation_dt = 10
+animation_dt = 30
 
 animation_step = 5
 
 streams_paths = ['C:/data/seismic_streams/']
 max_plots = 30
 save_animation = True
-save_name = 'stream_60sec_many.gif'
+save_name = 'stream_60sec_many_short.gif'
 
 slice_start = 45330
 slice_end = 120
@@ -38,8 +38,8 @@ normalize_stream = True
 hide_y_labels = True
 hide_x_labels = True
 
-window_length = 40
-plot_length = 37
+window_length = 60
+plot_length = 59
 
 data_sampling_rate = 100
 
@@ -162,9 +162,9 @@ if __name__ == '__main__':
     x_data = np.arange(x_length)
 
     # Start animation
-    animation = FuncAnimation(figure, plot_stream, range(0, x_length - plot_length, animation_step),
+    animation = FuncAnimation(figure, plot_stream, range(1),
                               fargs=[figure, axes, plots, streams, x_data],
-                              blit=False, interval=animation_dt, repeat=True, save_count=600)
+                              blit=False, interval=animation_dt, repeat=True, save_count=1)
 
     plt.show()
 
